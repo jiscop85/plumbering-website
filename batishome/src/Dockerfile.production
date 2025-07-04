@@ -1,0 +1,60 @@
+
+# مرحله اول: Build stage
+FROM node:18-alpine AS builder
+
+# نصب dependencies مورد نیاز برای build
+RUN apk add --no-cache git python3 make g++
+
+WORKDIR /app
+
+# کپی کردن package files
+COPY package*.json ./
+
+# نصب dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# کپی کردن source code
+COPY . .
+
+# ساخت پروژه برای production
+RUN npm run build
+
+# مرحله دوم: Production stage
+FROM nginx:alpine AS production
+
+# نصب curl برای health checks
+RUN apk add --no-cache curl
+
+# کپی کردن built files از مرحله اول
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# کپی کردن nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# باز کردن پورت
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost/ || exit 1
+
+# اجرای nginx
+CMD ["nginx", "-g", "daemon off;"]
+
+# مرحله سوم: Development با hot reload
+FROM node:18-alpine AS development
+
+RUN apk add --no-cache git
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+EXPOSE 8080
+
+ENV CHOKIDAR_USEPOLLING=true
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
