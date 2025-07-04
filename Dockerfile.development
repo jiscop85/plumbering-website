@@ -1,0 +1,42 @@
+
+# Dockerfile برای محیط توسعه BatisHome
+FROM node:18-alpine
+
+# نصب git برای کلون پروژه‌ها
+RUN apk add --no-cache git
+
+# تنظیم working directory
+WORKDIR /app
+
+# کپی کردن package files
+COPY package*.json ./
+
+# نصب dependencies
+RUN npm ci
+
+# کپی کردن کل پروژه
+COPY . .
+
+# باز کردن پورت
+EXPOSE 8080
+
+# تنظیم متغیر محیطی برای hot reload
+ENV CHOKIDAR_USEPOLLING=true
+
+# اجرای پروژه در حالت development
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# برای debugging - اضافه کردن ابزارهای مفید
+RUN npm install -g nodemon
+
+# ایجاد user غیر root برای امنیت
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S batishome -u 1001
+
+# تغییر ownership فایل‌ها
+RUN chown -R batishome:nodejs /app
+USER batishome
+
+# Health check برای بررسی سلامت container
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8080 || exit 1
