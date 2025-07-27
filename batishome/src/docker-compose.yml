@@ -1,0 +1,75 @@
+
+version: '3.8'
+
+services:
+  # سرویس Development
+  batishome-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    container_name: batishome-development
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount source code برای hot reload
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+      - ./tailwind.config.ts:/app/tailwind.config.ts
+      # Exclude node_modules
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+      - batishome-network
+    restart: unless-stopped
+    profiles:
+      - dev
+
+  # سرویس Production
+  batishome-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+      target: production
+    container_name: batishome-production
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - batishome-network
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  # سرویس برای Cross-platform development
+  batishome-mobile:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    container_name: batishome-mobile-dev
+    ports:
+      - "8080:8080"
+      - "3000:3000"  # برای Capacitor live reload
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - CAPACITOR_SERVER_URL=http://localhost:8080
+    networks:
+      - batishome-network
+    restart: unless-stopped
+    profiles:
+      - mobile
+
+networks:
+  batishome-network:
+    driver: bridge
+
+# Volumes برای persistent data
+volumes:
+  node_modules:
